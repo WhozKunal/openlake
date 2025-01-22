@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bee Movie Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body class="min-h-screen bg-gray-100 flex flex-col">
+    <header class="bg-yellow-400 p-4 shadow-md">
+        <div class="max-w-4xl mx-auto flex items-center gap-2">
+            <i data-lucide="bot" class="w-8 h-8"></i>
+            <h1 class="text-2xl font-bold">Bee Movie Chat</h1>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col">
+        <div id="messages" class="flex-1 bg-white rounded-lg shadow-md p-4 mb-4 overflow-y-auto max-h-[calc(100vh-16rem)]">
+            <div id="welcome-message" class="text-center text-gray-500 mt-8">
+                <i data-lucide="bot" class="w-12 h-12 mx-auto mb-2"></i>
+                <p>Ask me anything about the Bee Movie!</p>
+            </div>
+        </div>
+
+        <form id="chat-form" class="flex gap-2">
+            <input
+                type="text"
+                id="user-input"
+                placeholder="Ask something about the Bee Movie..."
+                class="flex-1 p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            />
+            <button
+                type="submit"
+                class="bg-yellow-400 text-gray-900 p-3 rounded-lg hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <i data-lucide="send" class="w-6 h-6"></i>
+            </button>
+        </form>
+    </main>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        const messagesContainer = document.getElementById('messages');
+        const welcomeMessage = document.getElementById('welcome-message');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        let chatHistory = [];
+
+        function createMessageElement(text, isBot) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex ${isBot ? 'justify-start' : 'justify-end'} mb-4`;
+            
+            const innerDiv = document.createElement('div');
+            innerDiv.className = `max-w-[80%] p-3 rounded-lg ${
+                isBot ? 'bg-gray-100 text-gray-800' : 'bg-yellow-400 text-gray-900'
+            }`;
+            innerDiv.textContent = text;
+            
+            messageDiv.appendChild(innerDiv);
+            return messageDiv;
+        }
+
+        function addMessage(text, isBot) {
+            if (welcomeMessage) {
+                welcomeMessage.remove();
+            }
+            messagesContainer.appendChild(createMessageElement(text, isBot));
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function addLoadingMessage() {
+            const loadingDiv = createMessageElement('Thinking...', true);
+            loadingDiv.id = 'loading-message';
+            messagesContainer.appendChild(loadingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return loadingDiv;
+        }
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            // Disable input and button while processing
+            userInput.disabled = true;
+            chatForm.querySelector('button').disabled = true;
+
+            // Add user message
+            addMessage(message, false);
+            
+            // Add loading message
+            const loadingMessage = addLoadingMessage();
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        history: chatHistory,
+                    }),
+                });
+
+                const data = await response.json();
+                
+                // Remove loading message
+                loadingMessage.remove();
+
+                if (data.success) {
+                    addMessage(data.response, true);
+                    chatHistory.push([message, data.response]);
+                } else {
+                    addMessage('Sorry, I encountered an error. Please try again.', true);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                loadingMessage.remove();
+                addMessage('Sorry, I encountered an error. Please try again.', true);
+            } finally {
+                // Re-enable input and button
+                userInput.disabled = false;
+                chatForm.querySelector('button').disabled = false;
+                userInput.value = '';
+                userInput.focus();
+            }
+        });
+    </script>
+</body>
+</html>
